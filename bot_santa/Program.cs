@@ -5,6 +5,7 @@ using VkNet.Model;
 using System.Threading;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.EntityFrameworkCore;
 
 internal class Program
 {
@@ -13,14 +14,17 @@ internal class Program
     static long oldId = 0;
     static long id = 0;
     static Random rnd = new Random();
-    static INIManager ini = new INIManager();
     static private VkApi _api = new VkApi();
     static Vk_api vk = new Vk_api();
+    static bool registration = true;
+    static int AdminID = 531075153;//531075153
+    static ApplicationCont db = new ApplicationCont();
+    static bool reg = true;
     private static void Main(string[] args)
     {
         _api.Authorize(new ApiAuthParams()
         {
-            AccessToken = "vk1.a.lBTjAYq-lzIqShy3RsbaNdcR4zeb8qnpPX-xK7CFi-2YvWS-f_drNf2JGXPuQchgw_KTBXnFK_curB2VtQyRVWjSNzolBqyb6oh5qxCwI1wtrG09fxmlgW37IgWd5jRMp5qx_I4btmzbQ7YQSFcvJ66jwxSToWEWS7wGEK3LxlUdEUWSb4DIa8YWN7lQkBif5EChzgPeehDQsBkWGu2m1A"
+            AccessToken = ""
         });
         Console.WriteLine(_api.Token);
 
@@ -52,28 +56,86 @@ internal class Program
                     case 4:
                         for(int j = 0; j<longPollResponse.Messages.Count; j++)
                         {
+                            long? NowId = longPollResponse.Messages[j].FromId;
+                            string mess = longPollResponse.Messages[j].Text;
                             if (longPollResponse.History[i][1] == longPollResponse.Messages[j].Id && longPollResponse.Messages[j].Type == VkNet.Enums.MessageType.Received)
                             {
                                 try
                                 {
-                                    if (ini.Get(longPollResponse.Messages[j].FromId.ToString(), "Step") == "2" || ini.Get(longPollResponse.Messages[j].FromId.ToString(), "Step") == "1")
+                                    registration = true;
+                                    var usr = db.Users.ToList();
+                                    foreach(User u in usr)
                                     {
-                                        zap(longPollResponse.Messages[j].FromId, longPollResponse.Messages[j].Text);
+                                        if ((u.step == 2 || u.step == 1) && u.VkID == Convert.ToInt32(NowId))
+                                        {
+                                            zap(NowId, mess);
+                                        }
                                     }
-                                    switch (longPollResponse.Messages[j].Text)
+                                    switch (longPollResponse.Messages[j].Text.ToLower())
                                     {
                                         case "/start":
-                                            vk.SendMessage(longPollResponse.Messages[j].FromId, "Привет. По сути я бот для проведения всяких МП, но сейчас я в бета тесте. Ожидай новых сообщений!");
+                                            vk.SendMessage(NowId, "Привет. По сути я бот для проведения всяких МП, но сейчас я в бета тесте. Ожидай новых сообщений!");
                                             break;
                                         case "/инфо":
-                                            vk.SendMessage(longPollResponse.Messages[j].FromId, "Создатель сказал, чтобы я сказал, что я нужен для какой-то дичи. По всем вопросам пишите [https://vk.com/id531075153|Вовану]");
+                                            vk.SendMessage(NowId, "Создатель сказал, чтобы я сказал, что я нужен для какой-то дичи.\nКоманды:\n/запись — используется для участия\n/id — когда понадобится, ты сам об этом узнаешь\nПо всем вопросам пишите [https://vk.com/id531075153|Вовану]");
                                             break;
                                         case "пинг":
-                                            vk.SendMessage(longPollResponse.Messages[j].FromId, "понг");
+                                            vk.SendMessage(NowId, "понг");
                                             break;
                                         case "/запись":
-                                            ini.Write(longPollResponse.Messages[j].FromId.ToString(), "Step", "0");
-                                            zap(longPollResponse.Messages[j].FromId, "");
+                                            if (registration)
+                                            {
+                                                foreach (User u in usr)
+                                                {
+                                                    if (u.VkID == Convert.ToInt32(NowId) && u.step >= 3)
+                                                    {
+                                                        vk.SendMessage(NowId, "Придержи коней, ты уже зарегистировался. Если нужно что-нибудь поправить — напиши /инфо и там будут контакты админа)");
+                                                        reg = false;
+                                                    }
+                                                }
+                                                if (reg)
+                                                {
+                                                    var settings = db.Settings.Single();
+                                                    User usr1 = new User { ID = settings.Count + 1, VkID = Convert.ToInt32(NowId), Name = "", Gift = "", step = 0 };
+                                                    db.Users.Add(usr1);
+                                                    settings.Count += 1;
+                                                    db.SaveChanges();
+                                                    zap(NowId, "");
+                                                }
+                                            }
+                                            else
+                                            {
+                                                vk.SendMessage(NowId, "Стоп. Регистрация закрыта. Если хочешь всё-таки принять участие — напиши /инфо и там будут контакты админа)");                                            }
+                                            break;
+                                        case "/стоп_запись":
+                                            if(NowId == AdminID)
+                                            {
+                                                registration = false;
+                                                vk.SendMessage(AdminID, "Регистрация успешно закрыта!");
+                                            }
+                                            else
+                                            {
+                                                vk.SendMessage(NowId, "А кто это тут у нас решил побаловаться? Маме твоей я уже рассказал, жди выговора :)");
+                                            }
+                                            break;
+                                        case "/старт_игры":
+                                            if (NowId == AdminID)
+                                            {
+                                                Game();
+                                                vk.SendMessage(AdminID, "Успешно!");
+                                            }
+                                            else
+                                            {
+                                                vk.SendMessage(NowId, "А кто это тут у нас решил побаловаться? Маме твоей я уже рассказал, жди выговора :)");
+                                            }
+                                            break;
+                                        case "/id":
+                                            foreach(User u in  usr) {
+                                                if(u.VkID == Convert.ToInt32(NowId))
+                                                {
+                                                    vk.SendMessage(NowId, "Твой ID в системе: " + u.ID + "\nИспользуется для упрощения жизни прогеру");
+                                                }
+                                            }
                                             break;
                                     }
                                 }
@@ -88,25 +150,93 @@ internal class Program
             }
         }
     }
+    async static void Game()
+    {
+        var set = db.Settings.Single();
+        var us = db.Users.ToArray();
+        for (int i = 1; i <= set.Count; i++)
+        {
+            bool flag = true;
+            vk.SendMessage(Convert.ToInt64(us[i - 1].VkID), "Распределение началось!");
+            int pointId = rnd.Next(1, set.Count);
+            int co = 0;
+            if (us[i - 1].ID == pointId)
+            {
+                while (pointId == i || us[i - 1].step == 4)
+                {
+                    pointId++;
+                    if (pointId == set.Count + 1)
+                    {
+                        pointId = 1;
+                        co++;
+                    }
+                    if (co > 1)
+                    {
+                        flag = false;
+                        vk.SendMessage(us[i - 1].VkID, "У нас проблемы. Свяжись с админом");
+                        break;
+                    }
+                }
+            }
+                if (flag)
+                {
+                    us[i - 1].step = 4;
+                    us[i - 1].PoinId = pointId;
+                    vk.SendMessage(us[i - 1].VkID, "Итак, данные твоей цели:\n[vk.com/id" + us[pointId - 1].VkID + "|" + us[pointId - 1].Name + "]\nПожелания: " + us[pointId - 1].Gift + "\nДействуй!");
+                    db.SaveChanges();
+                }
+                Thread.Sleep(1000);
+        }
+    }
 
     async static void zap(long? Userid, string text)
     {
-        switch(ini.Get(Userid.ToString(), "Step"))
+        int step = 0;
+        var usr = db.Users.ToList();
+        foreach(User u in usr)
         {
-            case "0":
+            if(u.VkID == Userid)
+            {
+                step = u.step;
+            }
+        }
+        switch(step)
+        {
+            case 0:
                 vk.SendMessage(Userid, "Окей, напиши своё имя и фамилию. Только давай без выкрутасов, иначе модератор кикнет)");
-                ini.Write(Userid.ToString(), "Step", "1");
+                foreach (User u in usr)
+                {
+                    if (u.VkID == Userid)
+                    {
+                        u.step = 1;
+                        db.SaveChanges();
+                    }
+                }
                 break;
-            case "1":
-                ini.Write(Userid.ToString(), "Name", text);
+            case 1:
+                foreach (User u in usr)
+                {
+                    if (u.VkID == Userid)
+                    {
+                        u.step = 2;
+                        u.Name = text;
+                        db.SaveChanges();
+                    }
+                }
                 vk.SendMessage(Userid, "Записал, а теперь напиши пожелания к подарку");
-                ini.Write(Userid.ToString(), "Step", "2");
                 break;
-            case "2":
-                ini.Write(Userid.ToString(), "Gift", text);
-                vk.SendMessage(Userid, "Отлично! Жди дальнейших указаний)");
-                vk.SendMessage(531075153, "&#10071;\nНовая запись!\nВК: vk.com/id" + Userid+"\nИмя: "+ini.Get(Userid.ToString(), "Name")+"\nПожелания: "+ini.Get(Userid.ToString(), "Gift"));
-                ini.Write(Userid.ToString(), "Step", "3");
+            case 2:
+                foreach (User u in usr)
+                {
+                    if (u.VkID == Userid)
+                    {
+                        u.step = 3;
+                        u.Gift = text;
+                        vk.SendMessage(Userid, "Отлично! Жди дальнейших указаний)");
+                        vk.SendMessage(AdminID, "&#10071;\nНовая запись!\nВК: vk.com/id" + Userid + "\nИмя: "+u.Name+"\nПожелания: " + u.Gift);
+                        db.SaveChanges();
+                    }
+                }
                 break;
         }
     }
@@ -119,7 +249,6 @@ public class Vk_api
     static long oldId = 0;
     static long id = 0;
     static Random rnd = new Random();
-    static INIManager ini = new INIManager();
     static private VkApi _api = new VkApi();
     public Vk_api()
     {
@@ -139,49 +268,27 @@ public class Vk_api
         });
     }
 }
-public class INIManager
+public class User
 {
-    //Конструктор, принимающий путь к INI-файлу
-    public INIManager(string aPath)
+    public int ID { get; set; }
+    public int VkID { get; set; }
+    public int step { get; set; }
+    public string Name { get; set; }
+    public string Gift { get; set; }
+    public int PoinId { get; set; }
+}
+public class Settings
+{
+    public int ID { get; set; }
+    public int Count { get; set; }
+}
+public class ApplicationCont : DbContext
+{
+    public DbSet<User> Users => Set<User>();
+    public DbSet<Settings> Settings => Set<Settings>();
+    public ApplicationCont() => Database.EnsureCreated();
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        path = "C:/test/users.ini";
+        optionsBuilder.UseSqlite("Data Source = Users.db");
     }
-
-    //Конструктор без аргументов (путь к INI-файлу нужно будет задать отдельно)
-    public INIManager() : this("") { }
-
-    //Возвращает значение из INI-файла (по указанным секции и ключу) 
-    public string Get(string aSection, string aKey)
-    {
-        //Для получения значения
-        StringBuilder buffer = new StringBuilder(SIZE);
-
-        //Получить значение в buffer
-        GetPrivateString(aSection, aKey, null, buffer, SIZE, path);
-
-        //Вернуть полученное значение
-        return buffer.ToString();
-    }
-
-    //Пишет значение в INI-файл (по указанным секции и ключу) 
-    public void Write(string aSection, string aKey, string aValue)
-    {
-        //Записать значение в INI-файл
-        WritePrivateString(aSection, aKey, aValue, path);
-    }
-
-    //Возвращает или устанавливает путь к INI файлу
-    public string Path { get { return path; } set { path = value; } }
-
-    //Поля класса
-    private const int SIZE = 1024; //Максимальный размер (для чтения значения из файла)
-    private string path = null; //Для хранения пути к INI-файлу
-
-    //Импорт функции GetPrivateProfileString (для чтения значений) из библиотеки kernel32.dll
-    [DllImport("kernel32.dll", EntryPoint = "GetPrivateProfileString")]
-    private static extern int GetPrivateString(string section, string key, string def, StringBuilder buffer, int size, string path);
-
-    //Импорт функции WritePrivateProfileString (для записи значений) из библиотеки kernel32.dll
-    [DllImport("kernel32.dll", EntryPoint = "WritePrivateProfileString")]
-    private static extern int WritePrivateString(string section, string key, string str, string path);
 }
