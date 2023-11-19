@@ -1,31 +1,21 @@
 ﻿using System.Net.Sockets;
 using VkNet;
-using VkNet.Enums.Filters;
-using VkNet.Enums.SafetyEnums;
 using VkNet.Model;
-using System.Threading;
-using System.Runtime.InteropServices;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
 using SantaBot.ApplicationContexts;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using SantaBot.Extensions;
 using SantaBot.Models;
 using Serilog;
 using VkNet.Exception;
 using VkNet.Utils.BotsLongPool;
 using User = SantaBot.Models.User;
 
-ulong ts;
-ulong? pts;
-long oldId = 0;
-long id = 0;
 var rnd = new Random();
-var api = new VkApi();
-Vk_api vk = new Vk_api();
-//var AdminID = 531075153;//531075153
+var vkApi = new VkApi();
 var db = new SqliteApplicationContext();
-var reg = true;
 
 Console.InputEncoding = Encoding.UTF8;
 Console.OutputEncoding = Encoding.UTF8;
@@ -52,12 +42,12 @@ if (appSettings is null)
 }
 
 logger.LogInformation("Authorizing...");
-api.Authorize(new ApiAuthParams
+vkApi.Authorize(new ApiAuthParams
 {
     AccessToken = appSettings.Token
 });
 
-var longPool = new BotsLongPoolUpdatesHandler(new BotsLongPoolUpdatesHandlerParams(api, appSettings.GroupId)
+var longPool = new BotsLongPoolUpdatesHandler(new BotsLongPoolUpdatesHandlerParams(vkApi, appSettings.GroupId)
 {
     GetPause = () => false,
     
@@ -85,128 +75,7 @@ var longPool = new BotsLongPoolUpdatesHandler(new BotsLongPoolUpdatesHandlerPara
     OnUpdates = OnUpdate
 });
 
-LongPollServerResponse longPoolServerResponse = api.Messages.GetLongPollServer(needPts: true);
-ts = Convert.ToUInt64(longPoolServerResponse.Ts);
-pts = longPoolServerResponse.Pts;
-while (true)
-{
-    //Отправляем запрос на сервер
-    LongPollHistoryResponse longPollResponse = api.Messages.GetLongPollHistory(new MessagesGetLongPollHistoryParams()
-    {
-        Ts = ts,
-        Pts = pts
-        //Fields = UsersFields.All //Указывает поля, которые будут возвращаться для каждого профиля. В данном примере для каждого отправителя сообщения получаем фото 100х100
-    });
-
-    //Получаем новый pts
-    pts = longPollResponse.NewPts;
-    //Console.WriteLine("+");
-    Thread.Sleep(500);
-    //Здесь пробегаемся по массиву событий
-    for (int i = 0; i < longPollResponse.History.Count; i++)
-    {
-        //Console.Write(".");
-        //И обрабатываем код события
-        switch (longPollResponse.History[i][0])
-        {
-            //Код 4 - новое сообщение
-            case 4:
-                for(int j = 0; j<longPollResponse.Messages.Count; j++)
-                {
-                    long? NowId = longPollResponse.Messages[j].FromId;
-                    string mess = longPollResponse.Messages[j].Text;
-                    if (longPollResponse.History[i][1] == longPollResponse.Messages[j].Id && longPollResponse.Messages[j].Type == VkNet.Enums.MessageType.Received)
-                    {
-                        try
-                        {
-                            var usr = db.Users.ToList();
-                            foreach(User u in usr)
-                            {
-                                if ((u.Step == 2 || u.Step == 1) && u.VkId == Convert.ToInt32(NowId))
-                                {
-                                    zap(NowId, mess);
-                                }
-                            }
-                            switch (longPollResponse.Messages[j].Text.ToLower())
-                            {
-                                case "/start":
-                                    vk.SendMessage(NowId, "Привет. По сути я бот для проведения всяких МП, но сейчас я в бета тесте. Ожидай новых сообщений!");
-                                    break;
-                                case "/инфо":
-                                    vk.SendMessage(NowId, "Создатель сказал, чтобы я сказал, что я нужен для какой-то дичи.\nКоманды:\n/запись — используется для участия\n/id — когда понадобится, ты сам об этом узнаешь\nПо всем вопросам пишите [https://vk.com/id531075153|Вовану]");
-                                    break;
-                                case "пинг":
-                                    vk.SendMessage(NowId, "понг");
-                                    break;
-                                case "/запись":
-                                    if (appSettings.RegistrationOpened)
-                                    {
-                                        foreach (User u in usr)
-                                        {
-                                            if (u.VkId == Convert.ToInt32(NowId) && u.Step >= 3)
-                                            {
-                                                vk.SendMessage(NowId, "Придержи коней, ты уже зарегистировался. Если нужно что-нибудь поправить — напиши /инфо и там будут контакты админа)");
-                                                reg = false;
-                                            }
-                                        }
-                                        if (reg)
-                                        {
-                                            var settings = db.Settings.Single();
-                                            User usr1 = new User { Id = settings.Count + 1, VkId = Convert.ToInt32(NowId), Name = "", Gift = "", Step = 0 };
-                                            db.Users.Add(usr1);
-                                            settings.Count += 1;
-                                            db.SaveChanges();
-                                            zap(NowId, "");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        vk.SendMessage(NowId, "Стоп. Регистрация закрыта. Если хочешь всё-таки принять участие — напиши /инфо и там будут контакты админа)");                                            }
-                                    break;
-                                case "/стоп_запись":
-                                    if(NowId == AdminID)
-                                    {
-                                        registration = false;
-                                        vk.SendMessage(AdminID, "Регистрация успешно закрыта!");
-                                    }
-                                    else
-                                    {
-                                        vk.SendMessage(NowId, "А кто это тут у нас решил побаловаться? Маме твоей я уже рассказал, жди выговора :)");
-                                    }
-                                    break;
-                                case "/старт_игры":
-                                    if (NowId == AdminID)
-                                    {
-                                        Game();
-                                        vk.SendMessage(AdminID, "Успешно!");
-                                    }
-                                    else
-                                    {
-                                        vk.SendMessage(NowId, "А кто это тут у нас решил побаловаться? Маме твоей я уже рассказал, жди выговора :)");
-                                    }
-                                    break;
-                                case "/id":
-                                    foreach(User u in  usr) {
-                                        if(u.VkId == Convert.ToInt32(NowId))
-                                        {
-                                            vk.SendMessage(NowId, "Твой ID в системе: " + u.Id + "\nИспользуется для упрощения жизни прогеру");
-                                        }
-                                    }
-                                    break;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine(ex.ToString());
-                        }
-                    }
-                }
-                break;
-        }
-    }
-}
-
-void OnUpdate(BotsLongPoolOnUpdatesEvent e)
+async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
 {
     var updates = new List<GroupUpdate>();
 
@@ -233,124 +102,158 @@ void OnUpdate(BotsLongPoolOnUpdatesEvent e)
 
     foreach (var message in newMessages)
     {
+        if (message is null)
+            continue;
+
+        var from = message.FromId;
+        if (from is null)
+            continue;
         
+        logger.LogInformation("New message from {Id}: {Message}", message.PeerId, message.Text);
+
+        if (await db.Users.AnyAsync(x => x.VkId == from && (x.Step == 1 || x.Step == 2)))
+        {
+            await Register(from, message.Text);
+        }
+        
+        switch (message.Text.ToLower())
+        {
+            case "/start":
+                await vkApi.SendMessageAsync(from, "Привет. По сути я бот для проведения всяких МП, но сейчас я в бета тесте. Ожидай новых сообщений!");
+                break;
+            
+            case "/инфо":
+                await vkApi.SendMessageAsync(from, "Создатель сказал, чтобы я сказал, что я нужен для какой-то дичи.\nКоманды:\n/запись — используется для участия\n/id — когда понадобится, ты сам об этом узнаешь\nПо всем вопросам пишите [https://vk.com/id531075153|Вовану]");
+                break;
+            
+            case "пинг":
+                await vkApi.SendMessageAsync(from, "понг");
+                break;
+            
+            case "/запись":
+                if (appSettings.RegistrationOpened)
+                {
+                    if (await db.Users.AnyAsync(x => x.VkId == from && x.Step >= 3))
+                    {
+                        await vkApi.SendMessageAsync(from, "Придержи коней, ты уже зарегистировался. Если нужно что-нибудь поправить — напиши /инфо и там будут контакты админа)");
+                    }
+                    else
+                    {
+                        var lastId = (await db.Users.OrderByDescending(x => x.Id).FirstAsync()).Id;
+                        var usr1 = new User { Id = lastId + 1, VkId = from.Value, Name = "", Gift = "", Step = 0 };
+                        await db.Users.AddAsync(usr1);
+                        await db.SaveChangesAsync();
+                        await Register(from, "");
+                    }
+                }
+                else
+                    await vkApi.SendMessageAsync(from, "Стоп. Регистрация закрыта. Если хочешь всё-таки принять участие — напиши /инфо и там будут контакты админа)");
+                break;
+            
+            case "/стоп_запись":
+                if (from == appSettings.AdminId)
+                {
+                    appSettings.RegistrationOpened = false;
+                    File.WriteAllText("settings.json",
+                        JsonSerializer.Serialize(appSettings, new JsonSerializerOptions { WriteIndented = true }));
+                    await vkApi.SendMessageAsync(appSettings.AdminId, "Регистрация успешно закрыта!");
+                }
+                else
+                {
+                    await vkApi.SendMessageAsync(from, "А кто это тут у нас решил побаловаться? Маме твоей я уже рассказал, жди выговора :)");
+                }
+                break;
+            
+            case "/старт_игры":
+                if (from == appSettings.AdminId)
+                {
+                    await Game();
+                    await vkApi.SendMessageAsync(appSettings.AdminId, "Успешно!");
+                }
+                else
+                {
+                    await vkApi.SendMessageAsync(appSettings.AdminId, "А кто это тут у нас решил побаловаться? Маме твоей я уже рассказал, жди выговора :)");
+                }
+                break;
+            
+            case "/id":
+                if (!await db.Users.AnyAsync(x => x.VkId == from))
+                    break;
+                
+                var user = await db.Users.FirstAsync(x => x.VkId == from);
+                await vkApi.SendMessageAsync(from, "Твой ID в системе: " + user.Id + "\nИспользуется для упрощения жизни прогеру");
+                break;
+        }
     }
 }
 
-void Game()
+async Task Game()
 {
-    var set = db.Settings.Single();
-    var us = db.Users.ToArray();
-    for (int i = 1; i <= set.Count; i++)
+    var users = await db.Users.OrderBy(x => x.Id).ToListAsync();
+    var count = users.Count;
+    
+    foreach (var user in users)
     {
-        bool flag = true;
-        vk.SendMessage(Convert.ToInt64(us[i - 1].VkId), "Распределение началось!");
-        int pointId = rnd.Next(1, set.Count);
-        int co = 0;
-        if (us[i - 1].Id == pointId)
+        var flag = true;
+        await vkApi.SendMessageAsync(user.VkId, "Распределение началось!");
+        var pointId = rnd.Next(1, count);
+        var co = 0;
+        if (user.Id != pointId) continue;
+        while (pointId == user.Id + 1 || user.Step == 4)
         {
-            while (pointId == i || us[i - 1].Step == 4)
+            pointId++;
+            if (pointId == count + 1)
             {
-                pointId++;
-                if (pointId == set.Count + 1)
-                {
-                    pointId = 1;
-                    co++;
-                }
-                if (co > 1)
-                {
-                    flag = false;
-                    vk.SendMessage(us[i - 1].VkId, "У нас проблемы. Свяжись с админом");
-                    break;
-                }
+                pointId = 1;
+                co++;
             }
+
+            if (co <= 1) continue;
+            await vkApi.SendMessageAsync(user.VkId, "У нас проблемы. Свяжись с админом");
+            flag = false;
+            break;
         }
         if (flag)
         {
-            us[i - 1].Step = 4;
-            us[i - 1].PointId = pointId;
-            vk.SendMessage(us[i - 1].VkId, "Итак, данные твоей цели:\n[vk.com/id" + us[pointId - 1].VkId + "|" + us[pointId - 1].Name + "]\nПожелания: " + us[pointId - 1].Gift + "\nДействуй!");
-            db.SaveChanges();
+            user.Step = 4;
+            user.PointId = pointId;
+            await vkApi.SendMessageAsync(user.VkId, "Итак, данные твоей цели:\n[vk.com/id" + users[pointId - 1].VkId + "|" + users[pointId - 1].Name + "]\nПожелания: " + users[pointId - 1].Gift + "\nДействуй!");
+            await db.SaveChangesAsync();
         }
-        Thread.Sleep(1000);
+
+        await Task.Delay(1000);
     }
 }
 
-    async static void zap(long? Userid, string text)
-    {
-        int step = 0;
-        var usr = db.Users.ToList();
-        foreach(User u in usr)
-        {
-            if(u.VkId == Userid)
-            {
-                step = u.Step;
-            }
-        }
-        switch(step)
-        {
-            case 0:
-                vk.SendMessage(Userid, "Окей, напиши своё имя и фамилию. Только давай без выкрутасов, иначе модератор кикнет)");
-                foreach (User u in usr)
-                {
-                    if (u.VkId == Userid)
-                    {
-                        u.Step = 1;
-                        db.SaveChanges();
-                    }
-                }
-                break;
-            case 1:
-                foreach (User u in usr)
-                {
-                    if (u.VkId == Userid)
-                    {
-                        u.Step = 2;
-                        u.Name = text;
-                        db.SaveChanges();
-                    }
-                }
-                vk.SendMessage(Userid, "Записал, а теперь напиши пожелания к подарку");
-                break;
-            case 2:
-                foreach (User u in usr)
-                {
-                    if (u.VkId == Userid)
-                    {
-                        u.Step = 3;
-                        u.Gift = text;
-                        vk.SendMessage(Userid, "Отлично! Жди дальнейших указаний)");
-                        vk.SendMessage(AdminID, "&#10071;\nНовая запись!\nВК: vk.com/id" + Userid + "\nИмя: "+u.Name+"\nПожелания: " + u.Gift);
-                        db.SaveChanges();
-                    }
-                }
-                break;
-        }
-    }
-
-public class Vk_api
+async Task Register(long? userId, string text)
 {
-    static ulong ts;
-    static ulong? pts;
-    static long oldId = 0;
-    static long id = 0;
-    static Random rnd = new Random();
-    static private VkApi _api = new VkApi();
-    public Vk_api()
+    var user = await db.Users.FirstAsync(x => x.VkId == userId);
+    
+    switch(user.Step)
     {
-        _api.Authorize(new ApiAuthParams()
-        {
-            AccessToken = ""
-        });
-        Console.WriteLine(_api.Token);
-    }
-    public void SendMessage(long? Userid, string message)
-    {
-        _api.Messages.Send(new MessagesSendParams
-        {
-            UserId = Userid,
-            Message = message,
-            RandomId = rnd.Next()
-        });
+        case 0:
+            await vkApi.SendMessageAsync(userId, "Окей, напиши своё имя и фамилию. Только давай без выкрутасов, иначе модератор кикнет)");
+            user.Step = 1;
+            await db.SaveChangesAsync();
+            break;
+        
+        case 1:
+            user.Step = 2;
+            user.Name = text;
+            await db.SaveChangesAsync();
+            
+            await vkApi.SendMessageAsync(userId, "Записал, а теперь напиши пожелания к подарку");
+            break;
+        
+        case 2:
+            user.Step = 3;
+            user.Gift = text;
+            await vkApi.SendMessageAsync(userId, "Отлично! Жди дальнейших указаний)");
+            await vkApi.SendMessageAsync(appSettings.AdminId, "&#10071;\nНовая запись!\nВК: vk.com/id" + userId + "\nИмя: "+user.Name+"\nПожелания: " + user.Gift);
+            await db.SaveChangesAsync();
+            
+            break;
     }
 }
+
+await longPool.RunAsync();
