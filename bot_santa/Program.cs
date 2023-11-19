@@ -254,7 +254,7 @@ public class Vk_api
     {
         _api.Authorize(new ApiAuthParams()
         {
-            AccessToken = "vk1.a.lBTjAYq-lzIqShy3RsbaNdcR4zeb8qnpPX-xK7CFi-2YvWS-f_drNf2JGXPuQchgw_KTBXnFK_curB2VtQyRVWjSNzolBqyb6oh5qxCwI1wtrG09fxmlgW37IgWd5jRMp5qx_I4btmzbQ7YQSFcvJ66jwxSToWEWS7wGEK3LxlUdEUWSb4DIa8YWN7lQkBif5EChzgPeehDQsBkWGu2m1A"
+            AccessToken = ""
         });
         Console.WriteLine(_api.Token);
     }
