@@ -66,7 +66,7 @@ internal class Program
                                     var usr = db.Users.ToList();
                                     foreach(User u in usr)
                                     {
-                                        if ((u.step == 2 || u.step == 1) && u.VkID == Convert.ToInt32(NowId))
+                                        if ((u.Step == 2 || u.Step == 1) && u.VkId == Convert.ToInt32(NowId))
                                         {
                                             zap(NowId, mess);
                                         }
@@ -87,7 +87,7 @@ internal class Program
                                             {
                                                 foreach (User u in usr)
                                                 {
-                                                    if (u.VkID == Convert.ToInt32(NowId) && u.step >= 3)
+                                                    if (u.VkId == Convert.ToInt32(NowId) && u.Step >= 3)
                                                     {
                                                         vk.SendMessage(NowId, "Придержи коней, ты уже зарегистировался. Если нужно что-нибудь поправить — напиши /инфо и там будут контакты админа)");
                                                         reg = false;
@@ -96,7 +96,7 @@ internal class Program
                                                 if (reg)
                                                 {
                                                     var settings = db.Settings.Single();
-                                                    User usr1 = new User { ID = settings.Count + 1, VkID = Convert.ToInt32(NowId), Name = "", Gift = "", step = 0 };
+                                                    User usr1 = new User { Id = settings.Count + 1, VkId = Convert.ToInt32(NowId), Name = "", Gift = "", Step = 0 };
                                                     db.Users.Add(usr1);
                                                     settings.Count += 1;
                                                     db.SaveChanges();
@@ -131,9 +131,9 @@ internal class Program
                                             break;
                                         case "/id":
                                             foreach(User u in  usr) {
-                                                if(u.VkID == Convert.ToInt32(NowId))
+                                                if(u.VkId == Convert.ToInt32(NowId))
                                                 {
-                                                    vk.SendMessage(NowId, "Твой ID в системе: " + u.ID + "\nИспользуется для упрощения жизни прогеру");
+                                                    vk.SendMessage(NowId, "Твой ID в системе: " + u.Id + "\nИспользуется для упрощения жизни прогеру");
                                                 }
                                             }
                                             break;
@@ -157,12 +157,12 @@ internal class Program
         for (int i = 1; i <= set.Count; i++)
         {
             bool flag = true;
-            vk.SendMessage(Convert.ToInt64(us[i - 1].VkID), "Распределение началось!");
+            vk.SendMessage(Convert.ToInt64(us[i - 1].VkId), "Распределение началось!");
             int pointId = rnd.Next(1, set.Count);
             int co = 0;
-            if (us[i - 1].ID == pointId)
+            if (us[i - 1].Id == pointId)
             {
-                while (pointId == i || us[i - 1].step == 4)
+                while (pointId == i || us[i - 1].Step == 4)
                 {
                     pointId++;
                     if (pointId == set.Count + 1)
@@ -173,16 +173,16 @@ internal class Program
                     if (co > 1)
                     {
                         flag = false;
-                        vk.SendMessage(us[i - 1].VkID, "У нас проблемы. Свяжись с админом");
+                        vk.SendMessage(us[i - 1].VkId, "У нас проблемы. Свяжись с админом");
                         break;
                     }
                 }
             }
                 if (flag)
                 {
-                    us[i - 1].step = 4;
-                    us[i - 1].PoinId = pointId;
-                    vk.SendMessage(us[i - 1].VkID, "Итак, данные твоей цели:\n[vk.com/id" + us[pointId - 1].VkID + "|" + us[pointId - 1].Name + "]\nПожелания: " + us[pointId - 1].Gift + "\nДействуй!");
+                    us[i - 1].Step = 4;
+                    us[i - 1].PointId = pointId;
+                    vk.SendMessage(us[i - 1].VkId, "Итак, данные твоей цели:\n[vk.com/id" + us[pointId - 1].VkId + "|" + us[pointId - 1].Name + "]\nПожелания: " + us[pointId - 1].Gift + "\nДействуй!");
                     db.SaveChanges();
                 }
                 Thread.Sleep(1000);
@@ -195,9 +195,9 @@ internal class Program
         var usr = db.Users.ToList();
         foreach(User u in usr)
         {
-            if(u.VkID == Userid)
+            if(u.VkId == Userid)
             {
-                step = u.step;
+                step = u.Step;
             }
         }
         switch(step)
@@ -206,9 +206,9 @@ internal class Program
                 vk.SendMessage(Userid, "Окей, напиши своё имя и фамилию. Только давай без выкрутасов, иначе модератор кикнет)");
                 foreach (User u in usr)
                 {
-                    if (u.VkID == Userid)
+                    if (u.VkId == Userid)
                     {
-                        u.step = 1;
+                        u.Step = 1;
                         db.SaveChanges();
                     }
                 }
@@ -216,9 +216,9 @@ internal class Program
             case 1:
                 foreach (User u in usr)
                 {
-                    if (u.VkID == Userid)
+                    if (u.VkId == Userid)
                     {
-                        u.step = 2;
+                        u.Step = 2;
                         u.Name = text;
                         db.SaveChanges();
                     }
@@ -228,9 +228,9 @@ internal class Program
             case 2:
                 foreach (User u in usr)
                 {
-                    if (u.VkID == Userid)
+                    if (u.VkId == Userid)
                     {
-                        u.step = 3;
+                        u.Step = 3;
                         u.Gift = text;
                         vk.SendMessage(Userid, "Отлично! Жди дальнейших указаний)");
                         vk.SendMessage(AdminID, "&#10071;\nНовая запись!\nВК: vk.com/id" + Userid + "\nИмя: "+u.Name+"\nПожелания: " + u.Gift);
@@ -267,20 +267,6 @@ public class Vk_api
             RandomId = rnd.Next()
         });
     }
-}
-public class User
-{
-    public int ID { get; set; }
-    public int VkID { get; set; }
-    public int step { get; set; }
-    public string Name { get; set; }
-    public string Gift { get; set; }
-    public int PoinId { get; set; }
-}
-public class Settings
-{
-    public int ID { get; set; }
-    public int Count { get; set; }
 }
 public class ApplicationCont : DbContext
 {
