@@ -139,8 +139,7 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
                     }
                     else
                     {
-                        var lastId = (await db.Users.OrderByDescending(x => x.Id).FirstAsync()).Id;
-                        var usr1 = new User { Id = lastId + 1, VkId = from.Value, Name = "", Gift = "", Step = 0 };
+                        var usr1 = new User { VkId = from.Value, Name = "", Gift = "", Step = 0 };
                         await db.Users.AddAsync(usr1);
                         await db.SaveChangesAsync();
                         await Register(from, "");
