@@ -139,7 +139,6 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
                     }
                     else
                     {
-                        //var lastId = (await db.Settings.OrderByDescending(x => x.Count).FirstAsync()).Count;
                         var usr1 = new User { VkId = from.Value, Name = "", Gift = "", Step = 0 };
                         await db.Users.AddAsync(usr1);
                         await db.SaveChangesAsync();
@@ -190,38 +189,20 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
 async Task Game()
 {
     var users = await db.Users.OrderBy(x => x.Id).ToListAsync();
-    var count = users.Count;
+    List<User> shuffledUsers;
     
-    foreach (var user in users)
+    do
     {
-        var flag = true;
-        await vkApi.SendMessageAsync(user.VkId, "Распределение началось!");
-        var pointId = rnd.Next(1, count);
-        var co = 0;
-        while (pointId == user.Id || user.Step == 4)
-        {
-            pointId++;
-            if (pointId == count + 1)
-            {
-                pointId = 1;
-                co++;
-            }
+        shuffledUsers = users.OrderBy(_ => rnd.Next()).ToList();
+    } while (users.Zip(shuffledUsers).Any(x => x.First.Id == x.Second.Id));
 
-            if (co <= 1) continue;
-            await vkApi.SendMessageAsync(user.VkId, "У нас проблемы. Свяжись с админом");
-            flag = false;
-            break;
-        }
-        if (flag)
-        {
-            user.Step = 4;
-            user.PointId = pointId;
-            await vkApi.SendMessageAsync(user.VkId, "Итак, данные твоей цели:\n[vk.com/id" + users[pointId - 1].VkId + "|" + users[pointId - 1].Name + "]\nПожелания: " + users[pointId - 1].Gift + "\nДействуй!");
-            await db.SaveChangesAsync();
-        }
-
-        await Task.Delay(1000);
+    for (var i = 0; i < users.Count; i++)
+    {
+        users[i].PointId = shuffledUsers[i].Id;
+        await vkApi.SendMessageAsync(users[i].VkId, "Итак, данные твоей цели:\n[vk.com/id" + shuffledUsers[i].VkId + "|" + shuffledUsers[i].Name + "]\nПожелания: " + shuffledUsers[i].Gift + "\nДействуй!");
     }
+
+    await db.SaveChangesAsync();
 }
 
 async Task Register(long? userId, string text)
