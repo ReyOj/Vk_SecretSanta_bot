@@ -200,6 +200,7 @@ async Task Game()
     for (var i = 0; i < users.Count; i++)
     {
         users[i].PointId = shuffledUsers[i].Id;
+        await vkApi.SendMessageAsync(users[i].VkId, "Итак, данные твоей цели:\n[vk.com/id" + shuffledUsers[i].VkId + "|" + shuffledUsers[i].Name + "]\nПожелания: " + shuffledUsers[i].Gift + "\nДействуй!");
     }
 
     await db.SaveChangesAsync();
