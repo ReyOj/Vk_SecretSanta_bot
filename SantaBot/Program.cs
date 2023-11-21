@@ -139,8 +139,8 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
                     }
                     else
                     {
-                        var lastId = (await db.Users.OrderByDescending(x => x.Id).FirstAsync()).Id;
-                        var usr1 = new User { Id = lastId + 1, VkId = from.Value, Name = "", Gift = "", Step = 0 };
+                        //var lastId = (await db.Settings.OrderByDescending(x => x.Count).FirstAsync()).Count;
+                        var usr1 = new User { VkId = from.Value, Name = "", Gift = "", Step = 0 };
                         await db.Users.AddAsync(usr1);
                         await db.SaveChangesAsync();
                         await Register(from, "");
@@ -198,8 +198,7 @@ async Task Game()
         await vkApi.SendMessageAsync(user.VkId, "Распределение началось!");
         var pointId = rnd.Next(1, count);
         var co = 0;
-        if (user.Id != pointId) continue;
-        while (pointId == user.Id + 1 || user.Step == 4)
+        while (pointId == user.Id || user.Step == 4)
         {
             pointId++;
             if (pointId == count + 1)
