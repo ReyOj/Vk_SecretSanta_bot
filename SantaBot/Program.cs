@@ -189,12 +189,7 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
 async Task Game()
 {
     var users = await db.Users.OrderBy(x => x.Id).ToListAsync();
-    List<User> shuffledUsers;
-    
-    do
-    {
-        shuffledUsers = users.OrderBy(_ => rnd.Next()).ToList();
-    } while (users.Zip(shuffledUsers).Any(x => x.First.Id == x.Second.Id));
+    var shuffledUsers = users.Shuffle();
 
     for (var i = 0; i < users.Count; i++)
     {
