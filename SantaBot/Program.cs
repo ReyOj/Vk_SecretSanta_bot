@@ -135,7 +135,7 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
                 {
                     if (await db.Users.AnyAsync(x => x.VkId == from && x.Step >= 3))
                     {
-                        await vkApi.SendMessageAsync(from, "Придержи коней, ты уже зарегистировался. Если нужно что-нибудь поправить — напиши /инфо и там будут контакты админа)");
+                        vkApi.SendMessage(from, "Придержи коней, ты уже зарегистировался. Если нужно что-нибудь поправить — напиши /инфо и там будут контакты админа)");
                     }
                     else
                     {
@@ -171,7 +171,7 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
                 }
                 else
                 {
-                    await vkApi.SendMessageAsync(appSettings.AdminId, "А кто это тут у нас решил побаловаться? Маме твоей я уже рассказал, жди выговора :)");
+                    await vkApi.SendMessageAsync(from, "А кто это тут у нас решил побаловаться? Маме твоей я уже рассказал, жди выговора :)");
                 }
                 break;
             
