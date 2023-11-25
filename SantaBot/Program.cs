@@ -166,6 +166,7 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
             case "/старт_игры":
                 if (from == appSettings.AdminId)
                 {
+                    await MassMess("Распределение началось!");
                     await Game();
                     await vkApi.SendMessageAsync(appSettings.AdminId, "Успешно!");
                 }
@@ -185,7 +186,15 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
         }
     }
 }
-
+async Task MassMess(string message)
+{
+    var users = await db.Users.OrderBy(x => x.Id).ToListAsync();
+    for(int i = 0; i < users.Count; i++)
+    {
+        await vkApi.SendMessageAsync(users[i].VkId, message);
+        await Task.Delay(1000);
+    }
+}
 async Task Game()
 {
     var users = await db.Users.OrderBy(x => x.Id).ToListAsync();
@@ -200,6 +209,7 @@ async Task Game()
     {
         users[i].PointId = shuffledUsers[i].Id;
         await vkApi.SendMessageAsync(users[i].VkId, "Итак, данные твоей цели:\n[vk.com/id" + shuffledUsers[i].VkId + "|" + shuffledUsers[i].Name + "]\nПожелания: " + shuffledUsers[i].Gift + "\nДействуй!");
+        await Task.Delay(1000);
     }
 
     await db.SaveChangesAsync();
