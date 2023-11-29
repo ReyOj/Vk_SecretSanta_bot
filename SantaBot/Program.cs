@@ -118,7 +118,7 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
         
         switch (message.Text.ToLower())
         {
-            case "/start":
+            case "начать":
                 await vkApi.SendMessageAsync(from, "Привет. По сути я бот для проведения всяких МП, но сейчас я в бета тесте. Ожидай новых сообщений!");
                 break;
             
@@ -185,6 +185,12 @@ async void OnUpdate(BotsLongPoolOnUpdatesEvent e)
                 break;
         }
     }
+}
+
+async Task Chat(string message, long? userId, int pointid)
+{
+    var user = await db.Users.AnyAsync(x => x.VkId == userId);
+    vkApi.SendMessage()
 }
 async Task MassMess(string message)
 {
